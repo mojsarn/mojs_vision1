@@ -359,15 +359,21 @@ def interact_ui_element(target: str, action: str = "click",
             return f"No window matching '{window}' found. Use list_windows to see available windows."
         _focus_window(w)
         path, _ = _capture_window(w)
+        win_left, win_top = w.left, w.top
     else:
         try:
             path, (w, h) = _grab_screen()
         except Exception as e:
             return f"Screenshot failed: {e}"
+        win_left, win_top = 0, 0
 
     cx, cy, detail = _locate_element(target, screen_path=path)
     if cx is None:
         return f"Could not locate element: {detail}"
+
+    # Convert window-relative coordinates to screen coordinates
+    cx += win_left
+    cy += win_top
 
     action = action.lower().strip()
     try:
