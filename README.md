@@ -1,11 +1,8 @@
 # mojs_vision1
 
 An MCP server that exposes a local vision model as callable tools, so a text
-agent (opencode, Claude Code, any MCP client) can look at screenshots
-mid-reasoning instead of you pasting images in by hand.
-
-The agent calls a tool → this process sends the image to a vision model over
-an OpenAI-compatible endpoint → the answer comes back as text.
+agent (opencode, Claude Code, any MCP client) can look at the live screen
+and interact with UI elements mid-reasoning.
 
 Built against a llama-swap server running **OS-Atlas-Base-7B** (a GUI
 grounding model), but any vision model on an OpenAI-compatible endpoint works.
@@ -14,31 +11,42 @@ grounding model), but any vision model on an OpenAI-compatible endpoint works.
 
 | tool | purpose |
 |---|---|
-| `take_screenshot(path, region)` | capture the screen (Windows/macOS; needs a display) |
-| `look_at_image(path, question)` | open-ended visual question answering |
-| `find_ui_element(path, target)` | GUI grounding → pixel click point |
-| `list_vision_models()` | what the endpoint offers |
+| `look_at_screen(question)` | ask a question about what's currently on screen |
+| `find_ui_element(target)` | locate a UI element, returns pixel coordinates |
+| `interact_ui_element(target, action, text)` | find + click/type/scroll/etc |
 
-`find_ui_element` returns e.g.
+All tools auto-screenshot — no need to capture first.
+
+`find_ui_element` and `interact_ui_element` return e.g.
 
     click_x=1056 click_y=712 box=[973,688,1139,736] image=1280x800
 
-## Why grounding is done inside the tool
+### interact_ui_element actions
 
-OS-Atlas answers with a **normalised** `[x1,y1,x2,y2]` box in 0..1, which is
-meaningless until scaled by the image size. The tool always asks for a box and
-scales it, because that is the only prompt shape where the model is accurate:
-
-| prompt | result on a 1280x800 test image |
+| action | what it does |
 |---|---|
-| freeform *"reply with the x,y position"* | `(800, 890)` — **outside the image** |
-| bounding box (what the tool sends) | centre `(1056, 712)` vs true `(1060, 722)` |
+| `click` | single click on the element center |
+| `double_click` | double-click on the element center |
+| `right_click` | right-click (context menu) |
+| `type` | click the element, then paste the text |
+| `hover` | move the mouse to the element center |
+| `scroll` | scroll down at the element center |
+| `key` | press a keyboard key (pass key name in `text`) |
 
-4 px and 10 px off. Judged on the freeform prompt you would conclude the model
-cannot ground at all.
+## How to write effective targets
 
-Scaling is done against the **original** image, not the downscaled copy that
-gets sent, so the coordinates are true screen pixels ready to click.
+The vision model locates elements by visual appearance. Target descriptions
+should describe what the element **looks like**, not just what it does.
+
+| target | quality |
+|---|---|
+| `"the button"` | bad — too vague |
+| `"the red Submit button at the bottom of the form"` | good |
+| `"the maximize restore button in the title bar, next to the X"` | good |
+| `"the search input field with a magnifying glass icon"` | good |
+
+`look_at_screen` works best with yes/no or factual questions. It may give
+unreliable answers for open-ended descriptions like "describe everything".
 
 ## Configuration
 
@@ -57,16 +65,16 @@ they spend the whole budget thinking and return an **empty** string.
     git clone <this repo> ~/mojs_vision1 && cd ~/mojs_vision1
     python3 -m venv venv
     venv/bin/pip install -r requirements.txt
-    venv/bin/python mcp-vision.py --selftest some-screenshot.png
+    venv/bin/python mcp-vision.py --selftest
 
 ### Windows
 
     py -m venv venv
     venv\Scripts\pip install -r requirements.txt
-    venv\Scripts\python mcp-vision.py --selftest some-screenshot.png
+    venv\Scripts\python mcp-vision.py --selftest
 
-`take_screenshot` only works where there is a real display — it uses PIL's
-`ImageGrab`, so Windows and macOS yes, headless Linux no.
+Screen capture uses PIL's `ImageGrab`, so Windows and macOS yes,
+headless Linux no.
 
 ## Registering with opencode
 
@@ -76,7 +84,7 @@ they spend the whole budget thinking and return an **empty** string.
 ```json
 {
   "mcp": {
-    "local-vision": {
+    "vision": {
       "type": "local",
       "command": ["/home/mojs/mojs_vision1/venv/bin/python",
                   "/home/mojs/mojs_vision1/mcp-vision.py"],
@@ -90,8 +98,8 @@ they spend the whole budget thinking and return an **empty** string.
 On Windows the command becomes:
 
 ```json
-["E:\\path\\to\\mojs_vision1\\venv\\Scripts\\python.exe",
- "E:\\path\\to\\mojs_vision1\\mcp-vision.py"]
+["C:\\path\\to\\python.exe",
+ "C:\\path\\to\\mcp-vision.py"]
 ```
 
 Verify with `opencode mcp list` — it should report `✓ connected`.
@@ -103,10 +111,7 @@ the IP form instead.
 
 **`MCP error -32000: Connection closed`** tells you nothing useful. Run the
 server standalone first — `venv/bin/python mcp-vision.py` — and the real error
-appears. That is how the `FastMCP` import failure below was found.
-
-**MCP SDK 2.x removed `FastMCP`.** This uses `mcp.server.MCPServer`. On SDK 1.x
-the import was `from mcp.server.fastmcp import FastMCP`.
+appears.
 
 **Empty replies from the vision model** mean the token budget went entirely on
 reasoning. Raise `MAX_TOKENS`.
