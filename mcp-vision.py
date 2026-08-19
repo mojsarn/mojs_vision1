@@ -216,9 +216,13 @@ def look_at_screen(question: str = "Describe what you see on screen.") -> str:
         path, (w, h) = _grab_screen()
     except Exception as e:
         return f"Screenshot failed: {e}"
+    from PIL import Image
+    im = Image.open(path)
+    im = _scale_image(im, 1280)
+    path, _ = _save_image(im)
     prompt = f"This is a screenshot of a computer screen. {question}"
     txt, size, orig = _ask_vision(path, prompt)
-    return f"{txt}\n\n(screen {orig[0]}x{orig[1]}, sent as {size[0]}x{size[1]})"
+    return f"{txt}\n\n(screen {w}x{h}, sent as {size[0]}x{size[1]})"
 
 
 def find_ui_element(target: str) -> str:
