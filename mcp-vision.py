@@ -84,18 +84,17 @@ def _find_window(title_part):
 
 def _focus_window(window):
     """Bring a window to foreground and focus it."""
+    import ctypes
     try:
-        window.activate()
-        _t.sleep(0.2)
+        hwnd = window._hWnd
+        # Use Windows API to bring window to foreground
+        ctypes.windll.user32.SetForegroundWindow(hwnd)
+        _t.sleep(0.1)
         return True
     except Exception:
         try:
-            window.minimize()
-            _t.sleep(0.1)
-            window.restore()
-            _t.sleep(0.2)
             window.activate()
-            _t.sleep(0.2)
+            _t.sleep(0.1)
             return True
         except Exception:
             return False
@@ -462,6 +461,8 @@ def build_server():
                                   "How to use effectively:\n"
                                   "- Use window parameter to focus on a specific window.\n"
                                   "  Pass partial title like 'Gmail' or 'opencode'.\n"
+                                  "  This brings the window to foreground automatically.\n"
+                                  "  Do NOT click to focus a window — use the window parameter instead.\n"
                                   "- ui_inspect: best for yes/no or factual questions.\n"
                                   "  May give unreliable answers for open-ended descriptions.\n"
                                   "- find/interact_ui_element: target must describe VISUAL APPEARANCE.\n"
