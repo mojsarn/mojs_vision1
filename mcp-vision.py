@@ -331,7 +331,13 @@ def build_server():
                                   "  GOOD: 'the red Submit button at the bottom of the form'\n"
                                   "  BAD:  'the button'\n"
                                   "- For title bar buttons, mention position (top-right, next to X).\n"
-                                  "- All tools auto-screenshot — no need to screenshot separately."))
+                                  "- All tools auto-screenshot — no need to screenshot separately.\n\n"
+                                  "Common workflows:\n"
+                                  "- Read text: look_at_screen('What is the title of...')\n"
+                                  "- Click element: interact_ui_element('the Save button', 'click')\n"
+                                  "- Find then click: find_ui_element first, then interact\n"
+                                  "- Type text: interact_ui_element('the search box', 'type', 'query')\n"
+                                  "- Scroll: interact_ui_element('the main content area', 'scroll')"))
     srv.add_tool(look_at_screen)
     srv.add_tool(find_ui_element)
     srv.add_tool(interact_ui_element)
