@@ -437,6 +437,8 @@ def write_text(text: str, window: str = "") -> str:
     is focused in that window. Only click first if you need to target a
     specific element (like a text field).
 
+    Use \n in text for newlines. Use \\n for a literal backslash-n.
+
     For special characters or keyboard shortcuts, use interact_ui_element
     with action='key' or action='hotkey' instead.
     """
@@ -450,8 +452,13 @@ def write_text(text: str, window: str = "") -> str:
         _focus_window(w)
 
     import pyperclip
-    pyperclip.copy(text)
-    pyautogui.hotkey("ctrl", "v")
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
+        if line:
+            pyperclip.copy(line)
+            pyautogui.hotkey("ctrl", "v")
+        if i < len(lines) - 1:
+            pyautogui.press("enter")
     return f"Typed '{text}'"
 
 
