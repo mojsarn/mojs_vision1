@@ -55,6 +55,62 @@ def _save_image(im):
     return path, im.size
 
 
+def _list_windows():
+    """List all visible windows with title, position and size."""
+    import pygetwindow as gw
+    windows = []
+    for w in gw.getAllWindows():
+        if w.title and w.width > 0 and w.height > 0:
+            windows.append({
+                "title": w.title,
+                "left": w.left,
+                "top": w.top,
+                "width": w.width,
+                "height": w.height,
+                "handle": w._hWnd
+            })
+    return windows
+
+
+def _find_window(title_part):
+    """Find a window by partial title match (case-insensitive)."""
+    import pygetwindow as gw
+    title_lower = title_part.lower()
+    for w in gw.getAllWindows():
+        if w.title and title_lower in w.title.lower() and w.width > 0 and w.height > 0:
+            return w
+    return None
+
+
+def _focus_window(window):
+    """Bring a window to foreground and focus it."""
+    try:
+        window.activate()
+        _t.sleep(0.2)
+        return True
+    except Exception:
+        try:
+            window.minimize()
+            _t.sleep(0.1)
+            window.restore()
+            _t.sleep(0.2)
+            window.activate()
+            _t.sleep(0.2)
+            return True
+        except Exception:
+            return False
+
+
+def _capture_window(window):
+    """Capture a specific window and save to temp. Returns (path, size)."""
+    from PIL import ImageGrab
+    box = (window.left, window.top, window.left + window.width, window.top + window.height)
+    im = ImageGrab.grab(bbox=box)
+    path = os.path.join(tempfile.gettempdir(), f"shot-{int(_t.time() * 1000)}.png")
+    im.save(path)
+    return path, im.size
+
+
 def _scale_image(im, max_side):
     """Scale image so the longest side is max_side, preserving aspect ratio."""
     from PIL import Image
@@ -204,39 +260,71 @@ def _locate_element(target, screen_path=None, screen_im=None, screen_size=None):
 
 # -- MCP tools -----------------------------------------------------------
 
-def look_at_screen(question: str = "Describe what you see on screen.") -> str:
+def list_windows() -> str:
+    """List all visible windows with title and position.
+
+    Use this to find window titles for the window parameter in other tools.
+    Returns a list of windows with title, position, and size.
+    """
+    windows = _list_windows()
+    if not windows:
+        return "No visible windows found."
+    lines = ["Visible windows:"]
+    for i, w in enumerate(windows):
+        lines.append(f"  {i+1}. \"{w['title']}\" ({w['width']}x{w['height']} at {w['left']},{w['top']})")
+    return "\n".join(lines)
+
+
+def ui_inspect(question: str = "Describe what you see on screen.",
+               window: str = "") -> str:
     """Take a screenshot and ask a question about what's visible.
 
     Use for: understanding screen content, reading text, checking state.
     NOT for: finding clickable elements (use find_ui_element or interact_ui_element).
     Works best with yes/no or factual questions. May give unreliable answers
     for open-ended descriptions like 'describe everything you see'.
+
+    window: optional partial window title to focus on (e.g. "Gmail" or "opencode").
+            If provided, brings that window to foreground and captures only it.
     """
-    try:
-        path, (w, h) = _grab_screen()
-    except Exception as e:
-        return f"Screenshot failed: {e}"
-    from PIL import Image
-    im = Image.open(path)
-    im = _scale_image(im, 2560)
-    path, _ = _save_image(im)
+    if window:
+        w = _find_window(window)
+        if not w:
+            return f"No window matching '{window}' found. Use list_windows to see available windows."
+        _focus_window(w)
+        path, (orig_w, orig_h) = _capture_window(w)
+    else:
+        try:
+            path, (orig_w, orig_h) = _grab_screen()
+        except Exception as e:
+            return f"Screenshot failed: {e}"
     prompt = f"This is a screenshot of a computer screen. {question}"
     txt, size, orig = _ask_vision(path, prompt)
-    return f"{txt}\n\n(screen {w}x{h}, sent as {size[0]}x{size[1]})"
+    return f"{txt}\n\n(window {orig_w}x{orig_h}, sent as {size[0]}x{size[1]})"
 
 
-def find_ui_element(target: str) -> str:
+def find_ui_element(target: str, window: str = "") -> str:
     """Take a screenshot and locate a UI element, returning pixel coordinates.
 
     Use for: finding where something is on screen before clicking.
     Returns detail string with click_x, click_y, box, and image size.
     target should be visually descriptive: 'the Save button in the toolbar',
     NOT just 'the button'.
+
+    window: optional partial window title to focus on (e.g. "Gmail" or "opencode").
+            If provided, brings that window to foreground and captures only it.
     """
-    try:
-        path, (w, h) = _grab_screen()
-    except Exception as e:
-        return f"Screenshot failed: {e}"
+    if window:
+        w = _find_window(window)
+        if not w:
+            return f"No window matching '{window}' found. Use list_windows to see available windows."
+        _focus_window(w)
+        path, _ = _capture_window(w)
+    else:
+        try:
+            path, (w, h) = _grab_screen()
+        except Exception as e:
+            return f"Screenshot failed: {e}"
     cx, cy, detail = _locate_element(target, screen_path=path)
     if cx is None:
         return f"Could not locate element: {detail}"
@@ -244,25 +332,39 @@ def find_ui_element(target: str) -> str:
 
 
 def interact_ui_element(target: str, action: str = "click",
-                        text: str = "") -> str:
+                        text: str = "", window: str = "") -> str:
     """Take a screenshot, find a UI element, and interact with it.
 
     Actions:
         click        - single click on the element center
         double_click - double-click on the element center
         right_click  - right-click on the element center (context menu)
-        type         - click the element, then type the text
+        type         - click the element, then paste the text
         hover        - move the mouse to the element center
         scroll       - scroll down at the element center
-        key          - press a keyboard key (use text for key name, e.g. "enter")
+        key          - press a keyboard key (pass key name in text, e.g. "enter")
+        hotkey       - press key combination (pass in text, e.g. "ctrl+a")
+
+    For typing text, prefer using write_text after clicking the target element.
+    That approach is faster and more reliable.
+
+    window: optional partial window title to focus on (e.g. "Gmail" or "opencode").
+            If provided, brings that window to foreground and captures only it.
     """
     import pyautogui
     pyautogui.FAILSAFE = True
 
-    try:
-        path, (w, h) = _grab_screen()
-    except Exception as e:
-        return f"Screenshot failed: {e}"
+    if window:
+        w = _find_window(window)
+        if not w:
+            return f"No window matching '{window}' found. Use list_windows to see available windows."
+        _focus_window(w)
+        path, _ = _capture_window(w)
+    else:
+        try:
+            path, (w, h) = _grab_screen()
+        except Exception as e:
+            return f"Screenshot failed: {e}"
 
     cx, cy, detail = _locate_element(target, screen_path=path)
     if cx is None:
@@ -305,12 +407,43 @@ def interact_ui_element(target: str, action: str = "click",
             pyautogui.press(text.lower().strip())
             return f"Pressed key '{text}'. {detail}"
 
+        elif action == "hotkey":
+            if not text:
+                return "action=hotkey requires the 'text' parameter like 'ctrl+a'"
+            keys = [k.strip() for k in text.lower().split("+")]
+            pyautogui.hotkey(*keys)
+            return f"Pressed hotkey '{text}'. {detail}"
+
         else:
             return (f"Unknown action '{action}'. "
-                    "Valid: click, double_click, right_click, type, hover, scroll, key")
+                    "Valid: click, double_click, right_click, type, hover, scroll, key, hotkey")
 
     except Exception as e:
         return f"Interaction failed at ({cx:.0f}, {cy:.0f}): {e}\n{detail}"
+
+
+def write_text(text: str, window: str = "") -> str:
+    """Type text at the current cursor position. No vision model needed.
+
+    Use this after clicking on a target element with interact_ui_element.
+    Much faster and more reliable than interact_ui_element with action='type'.
+
+    For special characters or keyboard shortcuts, use interact_ui_element
+    with action='key' or action='hotkey' instead.
+    """
+    import pyautogui
+    pyautogui.FAILSAFE = True
+
+    if window:
+        w = _find_window(window)
+        if not w:
+            return f"No window matching '{window}' found."
+        _focus_window(w)
+
+    import pyperclip
+    pyperclip.copy(text)
+    pyautogui.hotkey("ctrl", "v")
+    return f"Typed '{text}'"
 
 
 # -- Server --------------------------------------------------------------
@@ -321,11 +454,15 @@ def build_server():
                     instructions=("Look at the live screen and interact with "
                                   "UI elements using the local vision model.\n\n"
                                   "Tools:\n"
-                                  "  look_at_screen   — ask a question about what's on screen\n"
-                                  "  find_ui_element  — locate a UI element, returns pixel coords\n"
-                                  "  interact_ui_element — find + click/type/scroll/etc\n\n"
+                                  "  list_windows       — list all open windows\n"
+                                  "  ui_inspect         — ask a question about what's on screen\n"
+                                  "  find_ui_element    — locate a UI element, returns pixel coords\n"
+                                  "  interact_ui_element — find + click/type/scroll/etc\n"
+                                  "  write_text         — type text at cursor (no vision, fast)\n\n"
                                   "How to use effectively:\n"
-                                  "- look_at_screen: best for yes/no or factual questions.\n"
+                                  "- Use window parameter to focus on a specific window.\n"
+                                  "  Pass partial title like 'Gmail' or 'opencode'.\n"
+                                  "- ui_inspect: best for yes/no or factual questions.\n"
                                   "  May give unreliable answers for open-ended descriptions.\n"
                                   "- find/interact_ui_element: target must describe VISUAL APPEARANCE.\n"
                                   "  GOOD: 'the red Submit button at the bottom of the form'\n"
@@ -333,14 +470,17 @@ def build_server():
                                   "- For title bar buttons, mention position (top-right, next to X).\n"
                                   "- All tools auto-screenshot — no need to screenshot separately.\n\n"
                                   "Common workflows:\n"
-                                  "- Read text: look_at_screen('What is the title of...')\n"
+                                  "- List windows: list_windows()\n"
+                                  "- Read window content: ui_inspect('What is the title?', window='Gmail')\n"
                                   "- Click element: interact_ui_element('the Save button', 'click')\n"
                                   "- Find then click: find_ui_element first, then interact\n"
-                                  "- Type text: interact_ui_element('the search box', 'type', 'query')\n"
+                                  "- Type text: click target first, then write_text('hello')\n"
                                   "- Scroll: interact_ui_element('the main content area', 'scroll')"))
-    srv.add_tool(look_at_screen)
+    srv.add_tool(list_windows)
+    srv.add_tool(ui_inspect)
     srv.add_tool(find_ui_element)
     srv.add_tool(interact_ui_element)
+    srv.add_tool(write_text)
     return srv
 
 
@@ -349,10 +489,13 @@ if __name__ == "__main__":
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     if a.selftest:
-        print("look_at_screen():")
-        print(look_at_screen("What application is visible?")[:500])
+        print("list_windows():")
+        print(list_windows()[:500])
+        print()
+        print("ui_inspect():")
+        print(ui_inspect("What application is visible?", window="Notepad")[:500])
         print()
         print("find_ui_element():")
-        print(find_ui_element("the Start button or taskbar"))
+        print(find_ui_element("the text area", window="Notepad"))
         sys.exit(0)
     build_server().run()

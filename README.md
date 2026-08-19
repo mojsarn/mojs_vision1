@@ -11,15 +11,16 @@ grounding model), but any vision model on an OpenAI-compatible endpoint works.
 
 | tool | purpose |
 |---|---|
-| `look_at_screen(question)` | ask a question about what's currently on screen |
-| `find_ui_element(target)` | locate a UI element, returns pixel coordinates |
-| `interact_ui_element(target, action, text)` | find + click/type/scroll/etc |
+| `list_windows()` | list all open windows |
+| `ui_inspect(question, window)` | ask a question about what's on screen |
+| `find_ui_element(target, window)` | locate a UI element, returns pixel coords |
+| `interact_ui_element(target, action, text, window)` | find + click/type/scroll/etc |
+| `write_text(text, window)` | type text at cursor (no vision, fast) |
 
 All tools auto-screenshot — no need to capture first.
 
-`find_ui_element` and `interact_ui_element` return e.g.
-
-    click_x=1056 click_y=712 box=[973,688,1139,736] image=1280x800
+The `window` parameter is optional. Pass a partial window title (e.g. "Gmail"
+or "opencode") to focus on that window before capturing.
 
 ### interact_ui_element actions
 
@@ -32,6 +33,14 @@ All tools auto-screenshot — no need to capture first.
 | `hover` | move the mouse to the element center |
 | `scroll` | scroll down at the element center |
 | `key` | press a keyboard key (pass key name in `text`) |
+| `hotkey` | press key combination (pass in `text`, e.g. "ctrl+a") |
+
+### write_text
+
+Types text at the current cursor position without using the vision model.
+Much faster than `interact_ui_element` with `action='type'`.
+
+Workflow: click the target element first, then call `write_text`.
 
 ## How to write effective targets
 
@@ -45,7 +54,7 @@ should describe what the element **looks like**, not just what it does.
 | `"the maximize restore button in the title bar, next to the X"` | good |
 | `"the search input field with a magnifying glass icon"` | good |
 
-`look_at_screen` works best with yes/no or factual questions. It may give
+`ui_inspect` works best with yes/no or factual questions. It may give
 unreliable answers for open-ended descriptions like "describe everything".
 
 ## Configuration
