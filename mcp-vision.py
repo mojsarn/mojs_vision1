@@ -83,11 +83,15 @@ def _find_window(title_part):
 
 
 def _focus_window(window):
-    """Bring a window to foreground and focus it."""
+    """Bring a window to foreground and focus it. Skips if already focused."""
     import ctypes
     try:
         hwnd = window._hWnd
-        # Use Windows API to bring window to foreground
+        # Check if already focused
+        current_hwnd = ctypes.windll.user32.GetForegroundWindow()
+        if current_hwnd == hwnd:
+            return True
+        # Bring to foreground
         ctypes.windll.user32.SetForegroundWindow(hwnd)
         _t.sleep(0.1)
         return True
@@ -438,7 +442,14 @@ def write_text(text: str, window: str = "") -> str:
     is focused in that window. Only click first if you need to target a
     specific element (like a text field).
 
-    Use \n in text for newlines. Example: write_text("hello\nworld") types two lines.
+    Supports special keys with <key> syntax:
+    - Newlines: use \n in text (e.g. "hello\nworld")
+    - Arrow keys: <up>, <down>, <left>, <right>
+    - Other keys: <enter>, <tab>, <backspace>, <delete>, <escape>, <space>
+    - Function keys: <f1> through <f12>
+    - Modifier combos: <ctrl+a>, <ctrl+c>, <ctrl+v>
+
+    Example: write_text("line1\n<down><end>\nline2", window="Notepad")
 
     For special characters or keyboard shortcuts, use interact_ui_element
     with action='key' or action='hotkey' instead.
@@ -452,14 +463,30 @@ def write_text(text: str, window: str = "") -> str:
             return f"No window matching '{window}' found."
         _focus_window(w)
 
+    import re
     import pyperclip
-    lines = text.split("\n")
-    for i, line in enumerate(lines):
-        if line:
-            pyperclip.copy(line)
-            pyautogui.hotkey("ctrl", "v")
-        if i < len(lines) - 1:
-            pyautogui.press("enter")
+
+    # Split text into normal text and <key> tokens
+    parts = re.split(r'(<[^>]+>)', text)
+
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith('<') and part.endswith('>'):
+            # Special key
+            key = part[1:-1].lower()
+            if '+' in key:
+                # Modifier combo like ctrl+a
+                keys = [k.strip() for k in key.split('+')]
+                pyautogui.hotkey(*keys)
+            else:
+                pyautogui.press(key)
+        else:
+            # Normal text - paste it
+            if part:
+                pyperclip.copy(part)
+                pyautogui.hotkey("ctrl", "v")
+
     return f"Typed '{text}'"
 
 
@@ -496,6 +523,7 @@ def build_server():
                                   "- Find then click: find_ui_element first, then interact\n"
                                   "- Type text: write_text('hello', window='Notepad')\n"
                                   "- Multi-line: write_text('line1\nline2\nline3', window='Notepad')\n"
+                                  "- Arrow keys: write_text('<up><end>text', window='Notepad')\n"
                                   "- Scroll: interact_ui_element('the main content area', 'scroll')"))
     srv.add_tool(list_windows)
     srv.add_tool(ui_inspect)
