@@ -348,7 +348,8 @@ def interact_ui_element(target: str, action: str = "click",
     That approach is faster and more reliable.
 
     window: optional partial window title to focus on (e.g. "Gmail" or "opencode").
-            If provided, brings that window to foreground and captures only it.
+            If provided, brings that window to foreground — text goes here automatically.
+            Do NOT click a window just to focus it.
     """
     import pyautogui
     pyautogui.FAILSAFE = True
@@ -437,7 +438,7 @@ def write_text(text: str, window: str = "") -> str:
     is focused in that window. Only click first if you need to target a
     specific element (like a text field).
 
-    Use \n in text for newlines. Use \\n for a literal backslash-n.
+    Use \n in text for newlines. Example: write_text("hello\nworld") types two lines.
 
     For special characters or keyboard shortcuts, use interact_ui_element
     with action='key' or action='hotkey' instead.
@@ -476,11 +477,11 @@ def build_server():
                                   "  interact_ui_element — find + click/type/scroll/etc\n"
                                   "  write_text         — type text at cursor (no vision, fast)\n\n"
                                   "How to use effectively:\n"
-                                  "- Use window parameter to focus on a specific window.\n"
+                                  "- Use window parameter to send text/commands to a specific window.\n"
                                   "  Pass partial title like 'Gmail' or 'opencode'.\n"
-                                  "  This brings the window to foreground — text goes here automatically.\n"
-                                  "  Do NOT click a window just to focus it.\n"
-                                  "  Only click if you need to target a specific element within the window.\n"
+                                  "  This focuses the window — text and keys go here automatically.\n"
+                                  "  NEVER click a window just to focus it or type into it.\n"
+                                  "  ONLY click if you need to target a specific element within the window.\n"
                                   "- ui_inspect: best for yes/no or factual questions.\n"
                                   "  May give unreliable answers for open-ended descriptions.\n"
                                   "- find/interact_ui_element: target must describe VISUAL APPEARANCE.\n"
@@ -494,6 +495,7 @@ def build_server():
                                   "- Click element: interact_ui_element('the Save button', 'click')\n"
                                   "- Find then click: find_ui_element first, then interact\n"
                                   "- Type text: click target first, then write_text('hello')\n"
+                                  "- Multi-line: write_text('line1\nline2\nline3', window='Notepad')\n"
                                   "- Scroll: interact_ui_element('the main content area', 'scroll')"))
     srv.add_tool(list_windows)
     srv.add_tool(ui_inspect)
