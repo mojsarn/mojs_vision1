@@ -161,8 +161,8 @@ def _locate_element(target, screen_path=None, screen_im=None, screen_size=None):
               f'What is the position of the element corresponding to the command '
               f'"{target}" (with bbox)?')
 
-    # Step 1: rough localization at 1280px
-    scaled = _scale_image(screen_im, 1280)
+    # Step 1: rough localization at 2560px
+    scaled = _scale_image(screen_im, 2560)
     scaled_path, _ = _save_image(scaled)
     txt, _, _ = _ask_vision(scaled_path, prompt)
     box = _parse_box(txt)
@@ -218,7 +218,7 @@ def look_at_screen(question: str = "Describe what you see on screen.") -> str:
         return f"Screenshot failed: {e}"
     from PIL import Image
     im = Image.open(path)
-    im = _scale_image(im, 1280)
+    im = _scale_image(im, 2560)
     path, _ = _save_image(im)
     prompt = f"This is a screenshot of a computer screen. {question}"
     txt, size, orig = _ask_vision(path, prompt)
