@@ -1,4 +1,4 @@
-# mcp-vision
+# mojs_vision1
 
 An MCP server that exposes a local vision model as callable tools, so a text
 agent (opencode, Claude Code, any MCP client) can look at screenshots
@@ -54,7 +54,7 @@ they spend the whole budget thinking and return an **empty** string.
 
 ### Linux / macOS
 
-    git clone <this repo> ~/mcp-vision && cd ~/mcp-vision
+    git clone <this repo> ~/mojs_vision1 && cd ~/mojs_vision1
     python3 -m venv venv
     venv/bin/pip install -r requirements.txt
     venv/bin/python mcp-vision.py --selftest some-screenshot.png
@@ -78,8 +78,8 @@ they spend the whole budget thinking and return an **empty** string.
   "mcp": {
     "local-vision": {
       "type": "local",
-      "command": ["/home/mojs/mcp-vision/venv/bin/python",
-                  "/home/mojs/mcp-vision/mcp-vision.py"],
+      "command": ["/home/mojs/mojs_vision1/venv/bin/python",
+                  "/home/mojs/mojs_vision1/mcp-vision.py"],
       "enabled": true,
       "environment": { "LLAMASWAP_URL": "http://mojs-ai.local:8080/v1" }
     }
@@ -90,8 +90,8 @@ they spend the whole budget thinking and return an **empty** string.
 On Windows the command becomes:
 
 ```json
-["E:\\path\\to\\mcp-vision\\venv\\Scripts\\python.exe",
- "E:\\path\\to\\mcp-vision\\mcp-vision.py"]
+["E:\\path\\to\\mojs_vision1\\venv\\Scripts\\python.exe",
+ "E:\\path\\to\\mojs_vision1\\mcp-vision.py"]
 ```
 
 Verify with `opencode mcp list` — it should report `✓ connected`.
