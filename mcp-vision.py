@@ -468,7 +468,6 @@ def build_server():
                                   "- Use window parameter to focus on a specific window.\n"
                                   "  Pass partial title like 'Gmail' or 'opencode'.\n"
                                   "  This brings the window to foreground automatically.\n"
-                                  "  Do NOT click to focus a window — use the window parameter instead.\n"
                                   "- ui_inspect: best for yes/no or factual questions.\n"
                                   "  May give unreliable answers for open-ended descriptions.\n"
                                   "- find/interact_ui_element: target must describe VISUAL APPEARANCE.\n"
