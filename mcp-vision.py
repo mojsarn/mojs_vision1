@@ -433,6 +433,10 @@ def write_text(text: str, window: str = "") -> str:
     Use this after clicking on a target element with interact_ui_element.
     Much faster and more reliable than interact_ui_element with action='type'.
 
+    If window is provided, focuses that window first. Text goes to whatever
+    is focused in that window. Only click first if you need to target a
+    specific element (like a text field).
+
     For special characters or keyboard shortcuts, use interact_ui_element
     with action='key' or action='hotkey' instead.
     """
@@ -467,7 +471,9 @@ def build_server():
                                   "How to use effectively:\n"
                                   "- Use window parameter to focus on a specific window.\n"
                                   "  Pass partial title like 'Gmail' or 'opencode'.\n"
-                                  "  This brings the window to foreground automatically.\n"
+                                  "  This brings the window to foreground — text goes here automatically.\n"
+                                  "  Do NOT click a window just to focus it.\n"
+                                  "  Only click if you need to target a specific element within the window.\n"
                                   "- ui_inspect: best for yes/no or factual questions.\n"
                                   "  May give unreliable answers for open-ended descriptions.\n"
                                   "- find/interact_ui_element: target must describe VISUAL APPEARANCE.\n"
