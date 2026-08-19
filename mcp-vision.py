@@ -347,6 +347,9 @@ def interact_ui_element(target: str, action: str = "click",
     For typing text, prefer using write_text after clicking the target element.
     That approach is faster and more reliable.
 
+    For key/hotkey actions, the target is ignored — just use any descriptive text.
+    Example: interact_ui_element(target='the terminal', action='key', text='enter')
+
     window: optional partial window title to focus on (e.g. "Gmail" or "opencode").
             If provided, brings that window to foreground — text goes here automatically.
             Do NOT click a window just to focus it.
@@ -496,7 +499,11 @@ def build_server():
                                   "- Find then click: find_ui_element first, then interact\n"
                                   "- Type text: click target first, then write_text('hello')\n"
                                   "- Multi-line: write_text('line1\nline2\nline3', window='Notepad')\n"
-                                  "- Scroll: interact_ui_element('the main content area', 'scroll')"))
+                                  "- Scroll: interact_ui_element('the main content area', 'scroll')\n\n"
+                                  "Pressing keys (Enter, arrows, etc):\n"
+                                  "- Use interact_ui_element with action='key' and text='enter'.\n"
+                                  "- The target is ignored for key presses — use any descriptive text.\n"
+                                  "- Example: interact_ui_element(target='the terminal', action='key', text='enter')"))
     srv.add_tool(list_windows)
     srv.add_tool(ui_inspect)
     srv.add_tool(find_ui_element)
