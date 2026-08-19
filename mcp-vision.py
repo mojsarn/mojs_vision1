@@ -466,13 +466,16 @@ def write_text(text: str, window: str = "") -> str:
     import re
     import pyperclip
 
-    # Split text into normal text and <key> tokens
-    parts = re.split(r'(<[^>]+>)', text)
+    # Split text into normal text, newlines, and <key> tokens
+    parts = re.split(r'(\n|<[^>]+>)', text)
 
     for part in parts:
         if not part:
             continue
-        if part.startswith('<') and part.endswith('>'):
+        if part == '\n':
+            # Newline - press Enter
+            pyautogui.press("enter")
+        elif part.startswith('<') and part.endswith('>'):
             # Special key
             key = part[1:-1].lower()
             if '+' in key:
