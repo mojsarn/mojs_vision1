@@ -13,10 +13,46 @@ Run directly for a smoke test:
   python mcp-vision.py --selftest
 """
 import argparse, ast, base64, io, os, re, sys, tempfile, time as _t
+from dataclasses import dataclass
 
 API_BASE = os.environ.get("LLAMASWAP_URL", "http://mojs-ai.local:8080/v1")
-VISION_MODEL = os.environ.get("VISION_MODEL", "os-atlas-base-7b-q6-k")
 MAX_TOKENS = 900          # reasoning models return EMPTY below ~600
+
+
+@dataclass
+class VisionModel:
+    """Configuration for a vision model."""
+    name: str
+    coord_max: float = 1000.0    # max coordinate value (1.0 for normalized, 1000.0 for OS-Atlas)
+    prompt_template: str = "This is a screenshot of a computer screen. {question}"
+    grounding_prompt: str = ('This is a screenshot of a computer screen. '
+                             'What is the position of the element corresponding to '
+                             'the command "{target}" (with bbox)? '
+                             'Reply with coordinates only, like (x1,y1),(x2,y2).')
+
+
+# Available models — add new models here
+MODELS = {
+    "os-atlas": VisionModel(
+        name="mradermacher/OS-Atlas-Base-7B-GGUF:Q6_K",
+        coord_max=1000.0,
+    ),
+    "muse-glimmer": VisionModel(
+        name="meta-models/Muse-Glimmer-30B-GGUF:Q4_K_XL",
+        coord_max=1.0,
+    ),
+}
+
+# Select model from env or default
+_model_key = os.environ.get("VISION_MODEL_KEY", "muse-glimmer")
+if _model_key in MODELS:
+    VISION_MODEL = MODELS[_model_key]
+else:
+    # Allow direct model name override
+    VISION_MODEL = VisionModel(
+        name=os.environ.get("VISION_MODEL", "meta-models/Muse-Glimmer-30B-GGUF:Q4_K_XL"),
+        coord_max=float(os.environ.get("VISION_COORD_MAX", "1.0")),
+    )
 
 
 def _client():
@@ -153,7 +189,7 @@ def _encode(path):
 def _ask_vision(path, prompt, model=None):
     b64, size, orig = _encode(path)
     r = _client().chat.completions.create(
-        model=model or VISION_MODEL,
+        model=model or VISION_MODEL.name,
         messages=[{"role": "user", "content": [
             {"type": "text", "text": prompt},
             {"type": "image_url",
@@ -167,17 +203,21 @@ def _ask_vision(path, prompt, model=None):
 
 
 def _parse_box(txt):
-    """Extract bounding box from OS-Atlas output, return (x1, y1, x2, y2) in 0-1000 range.
+    """Extract bounding box from vision model output, return (x1, y1, x2, y2) in 0-1000 range.
 
-    OS-Atlas returns coordinates in 0-1000 range. Formats:
+    Coordinates are normalized to 0-1000 regardless of model's native range.
+    Formats:
       (x1,y1),(x2,y2)   — standard
       [[x1,y1,x2,y2]]   — bracket notation
       [x1,y1,x2,y2]     — single brackets
     """
+    coord_max = VISION_MODEL.coord_max
+    scale = 1000.0 / coord_max  # normalize to 0-1000
+
     # Try bracket format first: [[x1,y1,x2,y2]] or [x1,y1,x2,y2]
     m = re.search(r"\[?\[(\d+\.?\d*),\s*(\d+\.?\d*),\s*(\d+\.?\d*),\s*(\d+\.?\d*)\]\]?", txt)
     if m:
-        x1, y1, x2, y2 = [float(m.group(i)) for i in range(1, 5)]
+        x1, y1, x2, y2 = [float(m.group(i)) * scale for i in range(1, 5)]
         x1, y1, x2, y2 = [max(0.0, min(1000.0, v)) for v in [x1, y1, x2, y2]]
         return (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
 
@@ -186,12 +226,12 @@ def _parse_box(txt):
     m1 = re.search(p1, txt)
     if not m1:
         return None
-    x1, y1 = float(m1.group(1)), float(m1.group(2))
+    x1, y1 = float(m1.group(1)) * scale, float(m1.group(2)) * scale
     rest = txt[m1.end():]
     m2 = re.search(r",\((\d+\.?\d*),(\d+\.?\d*)\)", rest)
     if not m2:
         return None
-    x2, y2 = float(m2.group(1)), float(m2.group(2))
+    x2, y2 = float(m2.group(1)) * scale, float(m2.group(2)) * scale
     x1, y1, x2, y2 = [max(0.0, min(1000.0, v)) for v in [x1, y1, x2, y2]]
     return (min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2))
 
@@ -218,9 +258,7 @@ def _locate_element(target, screen_path=None, screen_im=None, screen_size=None):
         screen_im = Image.open(screen_path)
     orig_w, orig_h = screen_im.size
 
-    prompt = (f'This is a screenshot of a computer screen. '
-              f'What is the position of the element corresponding to the command '
-              f'"{target}" (with bbox)?')
+    prompt = VISION_MODEL.grounding_prompt.format(target=target)
 
     # Step 1: rough localization at 2560px
     scaled = _scale_image(screen_im, 2560)
