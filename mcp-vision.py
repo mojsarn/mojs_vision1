@@ -435,12 +435,9 @@ def interact_ui_element(target: str, action: str = "click",
 def write_text(text: str, window: str = "") -> str:
     """Type text at the current cursor position. No vision model needed.
 
-    Use this after clicking on a target element with interact_ui_element.
-    Much faster and more reliable than interact_ui_element with action='type'.
-
     If window is provided, focuses that window first. Text goes to whatever
-    is focused in that window. Only click first if you need to target a
-    specific element (like a text field).
+    is focused in that window. No need to click the window first — the
+    window parameter handles focusing automatically.
 
     Supports special keys with <key> syntax:
     - Newlines: use \n in text (e.g. "hello\nworld")
@@ -450,9 +447,6 @@ def write_text(text: str, window: str = "") -> str:
     - Modifier combos: <ctrl+a>, <ctrl+c>, <ctrl+v>
 
     Example: write_text("line1\n<down><end>\nline2", window="Notepad")
-
-    For special characters or keyboard shortcuts, use interact_ui_element
-    with action='key' or action='hotkey' instead.
     """
     import pyautogui
     pyautogui.FAILSAFE = True
@@ -510,7 +504,7 @@ def build_server():
                                   "- Use window parameter to send text/commands to a specific window.\n"
                                   "  Pass partial title like 'Gmail' or 'opencode'.\n"
                                   "  This focuses the window — text and keys go here automatically.\n"
-                                  "  NEVER click a window just to focus it or type into it.\n"
+                                  "  Do NOT click a window just to focus it or type into it.\n"
                                   "  ONLY click if you need to target a specific element within the window.\n"
                                   "- ui_inspect: best for yes/no or factual questions.\n"
                                   "  May give unreliable answers for open-ended descriptions.\n"
