@@ -87,18 +87,20 @@ def _focus_window(window):
     import ctypes
     try:
         hwnd = window._hWnd
-        # Check if already focused
         current_hwnd = ctypes.windll.user32.GetForegroundWindow()
         if current_hwnd == hwnd:
             return True
-        # Bring to foreground
+        # Trick Windows into allowing foreground change
+        # Press and release ALT to unlock SetForegroundWindow
+        ctypes.windll.user32.keybd_event(0x12, 0, 0, 0)       # ALT down
+        ctypes.windll.user32.keybd_event(0x12, 0, 2, 0)       # ALT up
         ctypes.windll.user32.SetForegroundWindow(hwnd)
-        _t.sleep(0.5)
+        _t.sleep(0.1)
         return True
     except Exception:
         try:
             window.activate()
-            _t.sleep(0.5)
+            _t.sleep(0.1)
             return True
         except Exception:
             return False
