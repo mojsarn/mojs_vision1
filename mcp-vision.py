@@ -16,7 +16,7 @@ import argparse, ast, base64, io, os, re, sys, tempfile, time as _t
 from dataclasses import dataclass
 
 API_BASE = os.environ.get("LLAMASWAP_URL", "http://mojs-ai.local:8080/v1")
-MAX_TOKENS = 900          # reasoning models return EMPTY below ~600
+MAX_TOKENS = 1800          # reasoning models return EMPTY below ~600
 
 
 @dataclass
@@ -57,7 +57,7 @@ else:
 
 def _client():
     from openai import OpenAI
-    return OpenAI(base_url=API_BASE, api_key="local")
+    return OpenAI(base_url=API_BASE, api_key="local", timeout=120)
 
 
 def _grab_screen(region=None):
