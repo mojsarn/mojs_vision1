@@ -93,12 +93,12 @@ def _focus_window(window):
             return True
         # Bring to foreground
         ctypes.windll.user32.SetForegroundWindow(hwnd)
-        _t.sleep(0.1)
+        _t.sleep(0.5)
         return True
     except Exception:
         try:
             window.activate()
-            _t.sleep(0.1)
+            _t.sleep(0.5)
             return True
         except Exception:
             return False
